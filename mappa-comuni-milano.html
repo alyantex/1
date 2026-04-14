@@ -197,15 +197,22 @@
         
         .comune-item {
             display: flex;
-            align-items: center;
-            padding: 0.5rem;
+            flex-direction: column;
+            padding: 0.75rem 0.5rem;
             border-radius: 6px;
+            border-bottom: 1px solid #f0f0f0;
             margin-bottom: 0.25rem;
             gap: 0.5rem;
         }
         
         .comune-item:hover {
-            background: #f5f5f5;
+            background: #f8f9fa;
+        }
+
+        .comune-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
         
         .comune-color-btn {
@@ -220,24 +227,25 @@
         
         .comune-name {
             flex: 1;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #333;
         }
         
         .comune-note {
             width: 100%;
-            padding: 0.25rem 0.5rem;
-            border: 1px solid #eee;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid #e0e0e0;
             border-radius: 4px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             margin-top: 0.25rem;
+            background: #fff;
         }
         
         .comune-note:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
         }
         
         .instructions {
@@ -391,7 +399,6 @@
                 fillOpacity: coloredComuni[comuneName] ? 0.8 : 0.6
             });
             
-            // Show tooltip with commune name
             if (!layer.getTooltip()) {
                 layer.bindTooltip(comuneName, {
                     permanent: false,
@@ -438,20 +445,12 @@
             colorComune(comuneName, selectedColor);
         }
 
-        function openPopupForComune(comuneName) {
-            if (!geoJsonLayer) return;
-            geoJsonLayer.eachLayer(layer => {
-                if (layer.feature.properties.name === comuneName) {
-                    layer.bindPopup(`<div class="popup-content"><h3>${comuneName}</h3></div>`).openPopup();
-                    return;
-                }
-            });
-        }
-
         function renderList() {
             const listEl = document.getElementById('communiList');
             const searchTerm = document.getElementById('search').value.toLowerCase();
             
+            if (!geoJsonData) return;
+
             const sortedFeatures = [...geoJsonData.features].sort((a, b) => 
                 a.properties.name.localeCompare(b.properties.name)
             );
@@ -468,12 +467,17 @@
                 
                 const item = document.createElement('div');
                 item.className = 'comune-item';
-                item.innerHTML = `
+                
+                // Riga superiore: Bottone colore + Nome Comune
+                const row = document.createElement('div');
+                row.className = 'comune-row';
+                row.innerHTML = `
                     <button class="comune-color-btn" style="background:${currentColor}" 
                         onclick="colorComuneFromList('${name.replace(/'/g, "\\'")}')"></button>
                     <span class="comune-name">${name}</span>
                 `;
                 
+                // Campo note sotto il nome
                 const noteInput = document.createElement('input');
                 noteInput.type = 'text';
                 noteInput.className = 'comune-note';
@@ -484,6 +488,7 @@
                     saveToStorage();
                 });
                 
+                item.appendChild(row);
                 item.appendChild(noteInput);
                 listEl.appendChild(item);
             });
@@ -516,15 +521,17 @@
             });
             
             document.getElementById('resetAll').addEventListener('click', () => {
-                coloredComuni = {};
-                communeNote = {};
-                saveToStorage();
-                updateStats();
-                renderList();
-                if (geoJsonLayer) {
-                    geoJsonLayer.eachLayer(layer => {
-                        layer.setStyle(styleFeature(layer.feature));
-                    });
+                if(confirm("Sei sicuro di voler cancellare tutti i colori e le note?")) {
+                    coloredComuni = {};
+                    communeNote = {};
+                    saveToStorage();
+                    updateStats();
+                    renderList();
+                    if (geoJsonLayer) {
+                        geoJsonLayer.eachLayer(layer => {
+                            layer.setStyle(styleFeature(layer.feature));
+                        });
+                    }
                 }
             });
         }
@@ -553,7 +560,6 @@
                 
             } catch(e) {
                 console.error('Error loading GeoJSON:', e);
-                alert('Errore nel caricamento dei dati. Ricarica la pagina.');
             }
         }
         
