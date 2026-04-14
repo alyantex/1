@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappa Comuni di Milano</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f8f9fa;
+            color: #1a1a1a;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .stats {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            opacity: 0.9;
+        }
+        
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            align-items: center;
+        }
+        
+        .color-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .color-buttons span {
+            font-size: 0.85rem;
+            color: #666;
+            margin-right: 0.5rem;
+        }
+        
+        .color-btn {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+        
+        .color-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .color-btn.active {
+            border-color: #333;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.2);
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .btn.reset {
+            color: #d32f2f;
+            border-color: #ffcdd2;
+        }
+        
+        .btn.reset:hover {
+            background: #ffebee;
+        }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .map-overlay button {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .map-overlay button:hover {
+            background: #f5f5f5;
+        }
+        
+        .sidebar {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .communi-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+        
+        .comune-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            margin-bottom: 0.25rem;
+            gap: 0.5rem;
+        }
+        
+        .comune-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .comune-color-btn {
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            background: white;
+        }
+        
+        .comune-name {
+            flex: 1;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .comune-note {
+            width: 100%;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+        
+        .comune-note:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .comune-tooltip {
+            background: rgba(0,0,0,0.8);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .leaflet-tooltip-top:before {
+            border-top-color: rgba(0,0,0,0.8);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .main-content {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mappa Interattiva — Comuni della Provincia di Milano</h1>
+            <div class="stats" id="stats">1 comuni colorati su 133</div>
+        </header>
+        
+        <div class="toolbar">
+            <div class="color-buttons">
+                <span>Colore selezionato:</span>
+                <button class="color-btn active" data-color="#22c55e" style="background:#22c55e" title="Verde"></button>
+                <button class="color-btn" data-color="#eab308" style="background:#eab308" title="Giallo"></button>
+                <button class="color-btn" data-color="#3b82f6" style="background:#3b82f6" title="Blu"></button>
+                <button class="color-btn" data-color="#ec4899" style="background:#ec4899" title="Rosa"></button>
+                <button class="color-btn" data-color="#8b5cf6" style="background:#8b5cf6" title="Viola"></button>
+                <button class="color-btn" data-color="#f97316" style="background:#f97316" title="Arancione"></button>
+                <button class="color-btn" data-color="#06b6d4" style="background:#06b6d4" title="Ciano"></button>
+                <button class="color-btn" data-color="#84cc16" style="background:#84cc16" title="Lime"></button>
+            </div>
+            <button class="btn reset" id="resetAll">Reset Tutto</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-overlay">
+                    <button id="zoomIn">+</button>
+                    <button id="zoomOut">−</button>
+                    <button id="resetView">↺</button>
+                </div>
+                <div class="instructions">Clicca su un comune per colorarlo | Scroll per zoom | Trascina per muovere</div>
+            </div>
+            
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Lista Comuni (133)</h2>
+                    <input type="text" class="search-input" placeholder="Cerca comune..." id="search">
+                </div>
+                <div class="communi-list" id="communiList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const COLORS = [
+            { name: 'Verde', hex: '#22c55e' },
+            { name: 'Giallo', hex: '#eab308' },
+            { name: 'Blu', hex: '#3b82f6' },
+            { name: 'Rosa', hex: '#ec4899' },
+            { name: 'Viola', hex: '#8b5cf6' },
+            { name: 'Arancione', hex: '#f97316' },
+            { name: 'Ciano', hex: '#06b6d4' },
+            { name: 'Lime', hex: '#84cc16' }
+        ];
+
+        let map;
+        let geoJsonLayer;
+        let selectedColor = '#22c55e';
+        let coloredComuni = {};
+        let communeNote = {};
+        let geoJsonData;
+
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('milanoComuniColors');
+                if (saved) {
+                    coloredComuni = JSON.parse(saved);
+                }
+                const savedNotes = localStorage.getItem('milanoComuniNotes');
+                if (savedNotes) {
+                    communeNote = JSON.parse(savedNotes);
+                }
+            } catch(e) {
+                console.error('Error loading from storage:', e);
+            }
+        }
+
+        function saveToStorage() {
+            try {
+                localStorage.setItem('milanoComuniColors', JSON.stringify(coloredComuni));
+                localStorage.setItem('milanoComuniNotes', JSON.stringify(communeNote));
+            } catch(e) {
+                console.error('Error saving to storage:', e);
+            }
+        }
+
+        function updateStats() {
+            const count = Object.keys(coloredComuni).length;
+            document.getElementById('stats').textContent = `${count} comuni colorati su 133`;
+        }
+
+        function styleFeature(feature) {
+            const comuneName = feature.properties.name;
+            const color = coloredComuni[comuneName];
+            const defaultColor = '#87CEEB'; // azzurro
+            return {
+                fillColor: color || defaultColor,
+                weight: 1,
+                opacity: 1,
+                color: '#333333',
+                fillOpacity: color ? 0.7 : 0.5
+            };
+        }
+
+        function highlightFeature(e) {
+            const layer = e.target;
+            const comuneName = layer.feature.properties.name;
+            layer.setStyle({
+                weight: 2,
+                color: '#000000',
+                fillOpacity: coloredComuni[comuneName] ? 0.8 : 0.6
+            });
+            
+            // Show tooltip with commune name
+            if (!layer.getTooltip()) {
+                layer.bindTooltip(comuneName, {
+                    permanent: false,
+                    direction: 'center',
+                    className: 'comune-tooltip'
+                });
+            }
+            layer.openTooltip();
+        }
+
+        function resetHighlight(e) {
+            geoJsonLayer.resetStyle(e.target);
+            e.target.closeTooltip();
+        }
+
+        function onEachFeature(feature, layer) {
+            const props = feature.properties;
+            layer.on({
+                mouseover: highlightFeature,
+                mouseout: resetHighlight,
+                click: () => colorComune(props.name, selectedColor)
+            });
+        }
+
+        function colorComune(comuneName, color) {
+            if (coloredComuni[comuneName] === color) {
+                delete coloredComuni[comuneName];
+            } else {
+                coloredComuni[comuneName] = color;
+            }
+            saveToStorage();
+            updateStats();
+            renderList();
+            if (geoJsonLayer) {
+                geoJsonLayer.eachLayer(layer => {
+                    if (layer.feature.properties.name === comuneName) {
+                        layer.setStyle(styleFeature(layer.feature));
+                    }
+                });
+            }
+        }
+
+        function colorComuneFromList(comuneName) {
+            colorComune(comuneName, selectedColor);
+        }
+
+        function openPopupForComune(comuneName) {
+            if (!geoJsonLayer) return;
+            geoJsonLayer.eachLayer(layer => {
+                if (layer.feature.properties.name === comuneName) {
+                    layer.bindPopup(`<div class="popup-content"><h3>${comuneName}</h3></div>`).openPopup();
+                    return;
+                }
+            });
+        }
+
+        function renderList() {
+            const listEl = document.getElementById('communiList');
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            
+            const sortedFeatures = [...geoJsonData.features].sort((a, b) => 
+                a.properties.name.localeCompare(b.properties.name)
+            );
+            
+            listEl.innerHTML = '';
+            
+            sortedFeatures.forEach(feature => {
+                const name = feature.properties.name;
+                if (searchTerm && !name.toLowerCase().includes(searchTerm)) {
+                    return;
+                }
+                
+                const currentColor = coloredComuni[name] || '#87CEEB';
+                
+                const item = document.createElement('div');
+                item.className = 'comune-item';
+                item.innerHTML = `
+                    <button class="comune-color-btn" style="background:${currentColor}" 
+                        onclick="colorComuneFromList('${name.replace(/'/g, "\\'")}')"></button>
+                    <span class="comune-name">${name}</span>
+                `;
+                
+                const noteInput = document.createElement('input');
+                noteInput.type = 'text';
+                noteInput.className = 'comune-note';
+                noteInput.placeholder = 'Aggiungi nota o nome...';
+                noteInput.value = communeNote[name] || '';
+                noteInput.addEventListener('change', (e) => {
+                    communeNote[name] = e.target.value;
+                    saveToStorage();
+                });
+                
+                item.appendChild(noteInput);
+                listEl.appendChild(item);
+            });
+        }
+
+        function initMap() {
+            map = L.map('map', {
+                center: [45.55, 9.15],
+                zoom: 10,
+                minZoom: 8,
+                maxZoom: 14,
+                zoomControl: false,
+                attributionControl: false
+            });
+            
+            map.getContainer().style.background = '#ffffff';
+            
+            document.getElementById('zoomIn').onclick = () => map.zoomIn();
+            document.getElementById('zoomOut').onclick = () => map.zoomOut();
+            document.getElementById('resetView').onclick = () => map.setView([45.55, 9.15], 10);
+        }
+
+        function initColorButtons() {
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedColor = btn.dataset.color;
+                });
+            });
+            
+            document.getElementById('resetAll').addEventListener('click', () => {
+                coloredComuni = {};
+                communeNote = {};
+                saveToStorage();
+                updateStats();
+                renderList();
+                if (geoJsonLayer) {
+                    geoJsonLayer.eachLayer(layer => {
+                        layer.setStyle(styleFeature(layer.feature));
+                    });
+                }
+            });
+        }
+
+        async function init() {
+            loadFromStorage();
+            initMap();
+            initColorButtons();
+            
+            try {
+                const response = await fetch('./milano_municipalities.geojson');
+                geoJsonData = await response.json();
+                
+                geoJsonLayer = L.geoJSON(geoJsonData, {
+                    style: styleFeature,
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+                
+                renderList();
+                updateStats();
+                
+                document.getElementById('search').addEventListener('input', renderList);
+                
+            } catch(e) {
+                console.error('Error loading GeoJSON:', e);
+                alert('Errore nel caricamento dei dati. Ricarica la pagina.');
+            }
+        }
+        
+        window.colorComune = colorComune;
+        window.colorComuneFromList = colorComuneFromList;
+        
+        init();
+    </script>
+</body>
+</html>
