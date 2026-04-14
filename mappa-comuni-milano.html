@@ -535,7 +535,10 @@
             initColorButtons();
             
             try {
-                const response = await fetch('./milano_municipalities.geojson');
+                const response = await fetch('https://www.italianwaymusic.com/geojson/milano_municipalities.geojson');
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
                 geoJsonData = await response.json();
                 
                 geoJsonLayer = L.geoJSON(geoJsonData, {
