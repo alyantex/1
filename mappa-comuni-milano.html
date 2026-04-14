@@ -245,7 +245,6 @@
         .comune-note:focus {
             outline: none;
             border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
         }
         
         .instructions {
@@ -271,17 +270,9 @@
             font-weight: 500;
         }
         
-        .leaflet-tooltip-top:before {
-            border-top-color: rgba(0,0,0,0.8);
-        }
-        
         @media (max-width: 768px) {
             .sidebar {
                 display: none;
-            }
-            
-            .main-content {
-                flex-direction: column;
             }
         }
     </style>
@@ -290,7 +281,7 @@
     <div class="container">
         <header>
             <h1>Mappa Interattiva — Comuni della Provincia di Milano</h1>
-            <div class="stats" id="stats">1 comuni colorati su 133</div>
+            <div class="stats" id="stats">0 comuni colorati su 133</div>
         </header>
         
         <div class="toolbar">
@@ -330,17 +321,6 @@
     </div>
 
     <script>
-        const COLORS = [
-            { name: 'Verde', hex: '#22c55e' },
-            { name: 'Giallo', hex: '#eab308' },
-            { name: 'Blu', hex: '#3b82f6' },
-            { name: 'Rosa', hex: '#ec4899' },
-            { name: 'Viola', hex: '#8b5cf6' },
-            { name: 'Arancione', hex: '#f97316' },
-            { name: 'Ciano', hex: '#06b6d4' },
-            { name: 'Lime', hex: '#84cc16' }
-        ];
-
         let map;
         let geoJsonLayer;
         let selectedColor = '#22c55e';
@@ -351,25 +331,15 @@
         function loadFromStorage() {
             try {
                 const saved = localStorage.getItem('milanoComuniColors');
-                if (saved) {
-                    coloredComuni = JSON.parse(saved);
-                }
+                if (saved) coloredComuni = JSON.parse(saved);
                 const savedNotes = localStorage.getItem('milanoComuniNotes');
-                if (savedNotes) {
-                    communeNote = JSON.parse(savedNotes);
-                }
-            } catch(e) {
-                console.error('Error loading from storage:', e);
-            }
+                if (savedNotes) communeNote = JSON.parse(savedNotes);
+            } catch(e) { console.error(e); }
         }
 
         function saveToStorage() {
-            try {
-                localStorage.setItem('milanoComuniColors', JSON.stringify(coloredComuni));
-                localStorage.setItem('milanoComuniNotes', JSON.stringify(communeNote));
-            } catch(e) {
-                console.error('Error saving to storage:', e);
-            }
+            localStorage.setItem('milanoComuniColors', JSON.stringify(coloredComuni));
+            localStorage.setItem('milanoComuniNotes', JSON.stringify(communeNote));
         }
 
         function updateStats() {
@@ -378,11 +348,9 @@
         }
 
         function styleFeature(feature) {
-            const comuneName = feature.properties.name;
-            const color = coloredComuni[comuneName];
-            const defaultColor = '#87CEEB'; // azzurro
+            const color = coloredComuni[feature.properties.name];
             return {
-                fillColor: color || defaultColor,
+                fillColor: color || '#87CEEB',
                 weight: 1,
                 opacity: 1,
                 color: '#333333',
@@ -390,36 +358,16 @@
             };
         }
 
-        function highlightFeature(e) {
-            const layer = e.target;
-            const comuneName = layer.feature.properties.name;
-            layer.setStyle({
-                weight: 2,
-                color: '#000000',
-                fillOpacity: coloredComuni[comuneName] ? 0.8 : 0.6
-            });
-            
-            if (!layer.getTooltip()) {
-                layer.bindTooltip(comuneName, {
-                    permanent: false,
-                    direction: 'center',
-                    className: 'comune-tooltip'
-                });
-            }
-            layer.openTooltip();
-        }
-
-        function resetHighlight(e) {
-            geoJsonLayer.resetStyle(e.target);
-            e.target.closeTooltip();
-        }
-
         function onEachFeature(feature, layer) {
-            const props = feature.properties;
             layer.on({
-                mouseover: highlightFeature,
-                mouseout: resetHighlight,
-                click: () => colorComune(props.name, selectedColor)
+                mouseover: (e) => {
+                    e.target.setStyle({ weight: 2, color: '#000' });
+                    e.target.bindTooltip(feature.properties.name, { className: 'comune-tooltip' }).openTooltip();
+                },
+                mouseout: (e) => {
+                    geoJsonLayer.resetStyle(e.target);
+                },
+                click: () => colorComune(feature.properties.name, selectedColor)
             });
         }
 
@@ -432,139 +380,80 @@
             saveToStorage();
             updateStats();
             renderList();
-            if (geoJsonLayer) {
-                geoJsonLayer.eachLayer(layer => {
-                    if (layer.feature.properties.name === comuneName) {
-                        layer.setStyle(styleFeature(layer.feature));
-                    }
-                });
-            }
-        }
-
-        function colorComuneFromList(comuneName) {
-            colorComune(comuneName, selectedColor);
+            geoJsonLayer.eachLayer(layer => {
+                if (layer.feature.properties.name === comuneName) {
+                    layer.setStyle(styleFeature(layer.feature));
+                }
+            });
         }
 
         function renderList() {
             const listEl = document.getElementById('communiList');
             const searchTerm = document.getElementById('search').value.toLowerCase();
-            
             if (!geoJsonData) return;
 
-            const sortedFeatures = [...geoJsonData.features].sort((a, b) => 
-                a.properties.name.localeCompare(b.properties.name)
-            );
-            
+            const sorted = [...geoJsonData.features].sort((a, b) => a.properties.name.localeCompare(b.properties.name));
             listEl.innerHTML = '';
             
-            sortedFeatures.forEach(feature => {
+            sorted.forEach(feature => {
                 const name = feature.properties.name;
-                if (searchTerm && !name.toLowerCase().includes(searchTerm)) {
-                    return;
-                }
-                
-                const currentColor = coloredComuni[name] || '#87CEEB';
+                if (searchTerm && !name.toLowerCase().includes(searchTerm)) return;
                 
                 const item = document.createElement('div');
                 item.className = 'comune-item';
-                
-                // Riga superiore: Bottone colore + Nome Comune
-                const row = document.createElement('div');
-                row.className = 'comune-row';
-                row.innerHTML = `
-                    <button class="comune-color-btn" style="background:${currentColor}" 
-                        onclick="colorComuneFromList('${name.replace(/'/g, "\\'")}')"></button>
-                    <span class="comune-name">${name}</span>
+                item.innerHTML = `
+                    <div class="comune-row">
+                        <button class="comune-color-btn" style="background:${coloredComuni[name] || '#87CEEB'}" 
+                            onclick="colorComune('${name.replace(/'/g, "\\'")}', selectedColor)"></button>
+                        <span class="comune-name">${name}</span>
+                    </div>
                 `;
                 
-                // Campo note sotto il nome
                 const noteInput = document.createElement('input');
-                noteInput.type = 'text';
                 noteInput.className = 'comune-note';
-                noteInput.placeholder = 'Aggiungi nota o nome...';
+                noteInput.placeholder = 'Aggiungi nota...';
                 noteInput.value = communeNote[name] || '';
-                noteInput.addEventListener('change', (e) => {
-                    communeNote[name] = e.target.value;
-                    saveToStorage();
-                });
+                noteInput.onchange = (e) => { communeNote[name] = e.target.value; saveToStorage(); };
                 
-                item.appendChild(row);
                 item.appendChild(noteInput);
                 listEl.appendChild(item);
             });
         }
 
-        function initMap() {
-            map = L.map('map', {
-                center: [45.55, 9.15],
-                zoom: 10,
-                minZoom: 8,
-                maxZoom: 14,
-                zoomControl: false,
-                attributionControl: false
-            });
-            
-            map.getContainer().style.background = '#ffffff';
+        async function init() {
+            loadFromStorage();
+            map = L.map('map', { center: [45.55, 9.15], zoom: 10, zoomControl: false });
             
             document.getElementById('zoomIn').onclick = () => map.zoomIn();
             document.getElementById('zoomOut').onclick = () => map.zoomOut();
             document.getElementById('resetView').onclick = () => map.setView([45.55, 9.15], 10);
-        }
 
-        function initColorButtons() {
             document.querySelectorAll('.color-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
+                btn.onclick = () => {
                     document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     selectedColor = btn.dataset.color;
-                });
+                };
             });
-            
-            document.getElementById('resetAll').addEventListener('click', () => {
-                if(confirm("Sei sicuro di voler cancellare tutti i colori e le note?")) {
-                    coloredComuni = {};
-                    communeNote = {};
-                    saveToStorage();
-                    updateStats();
-                    renderList();
-                    if (geoJsonLayer) {
-                        geoJsonLayer.eachLayer(layer => {
-                            layer.setStyle(styleFeature(layer.feature));
-                        });
-                    }
-                }
-            });
-        }
 
-        async function init() {
-            loadFromStorage();
-            initMap();
-            initColorButtons();
-            
-            try {
-                const response = await fetch('https://www.italianwaymusic.com/geojson/milano_municipalities.geojson');
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
+            document.getElementById('resetAll').onclick = () => {
+                if(confirm("Resettare tutto?")) {
+                    coloredComuni = {}; communeNote = {}; saveToStorage();
+                    updateStats(); renderList();
+                    geoJsonLayer.eachLayer(l => geoJsonLayer.resetStyle(l));
                 }
+            };
+
+            try {
+                // MODIFICA CRUCIALE: Carica il file locale dal tuo repository invece che dal link esterno
+                const response = await fetch('./milano_municipalities.geojson');
                 geoJsonData = await response.json();
-                
-                geoJsonLayer = L.geoJSON(geoJsonData, {
-                    style: styleFeature,
-                    onEachFeature: onEachFeature
-                }).addTo(map);
-                
+                geoJsonLayer = L.geoJSON(geoJsonData, { style: styleFeature, onEachFeature: onEachFeature }).addTo(map);
                 renderList();
                 updateStats();
-                
-                document.getElementById('search').addEventListener('input', renderList);
-                
-            } catch(e) {
-                console.error('Error loading GeoJSON:', e);
-            }
+                document.getElementById('search').oninput = renderList;
+            } catch(e) { console.error("Errore caricamento dati:", e); }
         }
-        
-        window.colorComune = colorComune;
-        window.colorComuneFromList = colorComuneFromList;
         
         init();
     </script>
